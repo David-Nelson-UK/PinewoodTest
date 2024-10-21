@@ -1,0 +1,153 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="row" id="content">
+    <div class="col-lg-6">
+        <h3>All Customers</h3>
+        <ul id="customer-list"></ul>
+        <button class="btn btn-sm btn-primary" id="new">Add New</button>
+    </div>
+    <div class="col-lg-6">
+        <div id="details"></div>
+        <div id="form">
+            <form class="form-horizontal">
+                <input type="hidden" asp-for="Id" />
+                <div class="form-group">
+                    <label for="Name">Name</label>
+                    <input type="text" asp-for="Name" class="form-control input-sm" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label for="Email">Email</label>
+                    <input type="text" asp-for="Email" class="form-control input-sm" />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label for="Address">Address</label>
+                    <textarea type="text" asp-for="Address" class="form-control input-sm">
+                      </textarea>
+                    <span asp-validation-for="Address" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label for="Name">Phone</label>
+                    <input type="text" asp-for="Phone" class="form-control input-sm" />
+                    <span asp-validation-for="Phone" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary btn-sm mt-3" id="save">Submit</button>
+                </div>
+               
+            </form>
+        </div>
+        
+    </div>
+</div>
+@section scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script type="text/javascript">
+        $(function () {
+            var loadCustomers = function () {
+                $('#customer-list').empty();
+                $.get('/api/customer').done(function (customers) {
+                    $.each(customers, function (i, customer) {
+                       
+                        var item = `<li>
+                                        <span class="entry">
+                                            <strong>${customer.name}</strong>
+                                        </span>
+                                        <span class="details" data-id="${customer.id}">Details</span>
+                                        <span class="edit" data-id="${customer.id}">Edit</span>
+                                        <span class="delete" data-id="${customer.id}">Delete</span>
+
+                                    </li>`;
+                        $('#customer-list').append(item);
+                    });
+                });
+            }
+            var showForm = function () {
+                $(':input').val('');
+                $('#details').empty();
+                $('#form').show();
+            }
+            var clearForm = function () {
+                $('#details').empty();
+                $(':input').val('');
+                $('#form').hide();
+            }
+            $('#new').on('click', showForm);
+            clearForm();
+            loadCustomers();
+            $('#customer-list').on('click', '.edit, .details', function () {
+                var cmd = $(this);
+                $.get(`/api/customer/${cmd.data('id')}`).done(function (customer) {
+                    if (cmd.hasClass('details')) {
+                        clearForm()
+                        $('#details').empty().append(
+                            `<h3>Details</h3>
+                                    <strong>${customer.name}</strong><br>
+                                   ${customer.email}<br>
+                                    ${customer.address}<br>
+                                    ${customer.phone}`
+                        );
+                    } else {
+                        showForm();
+                        $('#Id').val(customer.id);
+                        $('#Name').val(customer.name);
+                        $('#Email').val(customer.email);
+                        $('#Address').val(customer.address);
+                        $('#Phone').val(customer.phone);
+                    }
+                });
+            });
+            $('#save').on('click', function (e) {
+                e.preventDefault();
+               
+                    $('#save').attr("disabled", "disabled");
+                    var url = '/api/customer/';
+                    var method = 'post';
+                    if ($('#Id').val() !== '') {
+                        url += $('#Id').val();
+                        method = 'put';
+                    }
+                    var customer = {};
+                    $.each($(this).closest('form').serializeArray(), function () {
+                        if (this.name !== 'Id' || (this.name === 'Id' && this.value !== '')) {
+                            customer[this.name] = this.value.replace(/\r\n/g, ",") || '';
+                        }
+
+                    });
+                    $.ajax({
+                        type: method,
+                        url: url,
+                        data: JSON.stringify(customer),
+                        contentType: 'application/json'
+                    }).fail(function (e) {
+                        for (const property in e.responseJSON.errors) {
+                            alert(`${e.responseJSON.errors[property]}`);
+                        }
+                        $('#save').removeAttr("disabled");
+
+                    }).done(function () {
+                        $('#save').removeAttr("disabled");
+                        clearForm();
+                        loadCustomers();
+                    });
+               
+            });
+            $('#customer-list').on('click', '.delete', function () {
+                $('.delete').attr("disabled", "disabled");
+                $.ajax({
+                    type: 'delete',
+                    url: '/api/customer/' + $(this).data('id'),
+                }).done(function () {
+                    clearForm();
+                    loadCustomers();
+                    $('.delete').removeAttr("disabled");
+                });
+            });
+        });
+    </script>
+}
